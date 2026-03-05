@@ -1,0 +1,7 @@
+stock_daily/
+pkl_handle/
+models/
+output/
+__pycache__/
+*.pkl
+*.log
