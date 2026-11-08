@@ -496,6 +496,96 @@ def save_chart(code: str, indicators: pd.DataFrame, forecasts: list[HorizonResul
     plt.close(fig)
 
 
+def _markdown_report_to_html(markdown_text: str, title: str, chart_filename: str) -> str:
+    from html import escape
+    import re
+    parts = []
+    in_list = False
+    in_table = False
+    def close_list():
+        nonlocal in_list
+        if in_list: parts.append('</ul>'); in_list = False
+    def close_table():
+        nonlocal in_table
+        if in_table: parts.append('</tbody></table></div>'); in_table = False
+    def fmt(value):
+        return re.sub(r'\\*\\*(.+?)\\*\\*', r'<strong>\\1</strong>', escape(value))
+    for raw in markdown_text.splitlines():
+        line = raw.strip()
+        if not line: close_list(); close_table(); continue
+        if line.startswith('|') and line.endswith('|'):
+            close_list(); cells = [x.strip() for x in line.strip('|').split('|')]
+            if all(re.fullmatch(r':?-{3,}:?', x) for x in cells): continue
+            if not in_table:
+                parts.append('<div class="table-wrap"><table><thead><tr>')
+                parts.extend('<th>' + fmt(x) + '</th>' for x in cells)
+                parts.append('</tr></thead><tbody>'); in_table = True
+            else:
+                parts.append('<tr>'); parts.extend('<td>' + fmt(x) + '</td>' for x in cells); parts.append('</tr>')
+            continue
+        close_table(); heading = re.match(r'^(#{1,3})\\s+(.+)                 include_context: bool = True) -> dict[str, Any]:
+    code = normalize_code(code)
+    history = fetch_history(code, years=years)
+    indicators = add_indicators(history)
+    forecasts, diagnostics = fit_forecasts(indicators)
+    context: dict[str, Any] = {"fundamentals": {}, "news": {"count": 0, "sentiment_score": None, "headlines": []}}
+    if include_context:
+        try:
+            context = fetch_company_context(code)
+        except Exception as exc:
+            context["context_error"] = str(exc)[:240]
+    report = build_report(code, indicators, forecasts, diagnostics, context)
+    out = Path(output)
+    out.mkdir(parents=True, exist_ok=True)
+    indicators.to_csv(out / f"{code}_features.csv", index=False, encoding="utf-8-sig")
+    forecast_payload = {
+        "code": code,
+        "as_of": str(pd.Timestamp(indicators.iloc[-1]["date"]).date()),
+        "latest_close": float(indicators.iloc[-1]["close"]),
+        "forecasts": [asdict(item) for item in forecasts],
+        "validation_diagnostics": diagnostics,
+        "company_context": context,
+        "methodology": {
+            "models": ["ExtraTreesRegressor", "RandomForestRegressor", "HistGradientBoostingRegressor"],
+            "horizons": list(HORIZONS),
+            "validation": "chronological 80/20 split with horizon-sized embargo",
+            "prediction_interval": "empirical 5th/95th percentile of validation residuals",
+        },
+    }
+    (out / f"{code}_forecast.json").write_text(
+        json.dumps(forecast_payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
+    )
+    save_chart(code, indicators, forecasts, out / f"{code}_chart.png")
+    html_report = _markdown_report_to_html(report, f"{code} 全维度股票研究报告", f"{code}_chart.png")
+    (out / f"{code}_analysis.html").write_text(html_report, encoding="utf-8")
+    print("HTML 报告已生成：" + str((out / (code + "_analysis.html")).resolve()))
+    return forecast_payload
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="A 股全维度机器学习研究流水线")
+    parser.add_argument("--code", required=True, help="A 股代码，例如 000001 或 600519.SH")
+    parser.add_argument("--years", type=int, choices=(2, 3, 5), default=3)
+    parser.add_argument("--output", default="output")
+    parser.add_argument("--skip-context", action="store_true", help="跳过公司资料和新闻接口")
+    args = parser.parse_args()
+    run_analysis(args.code, years=args.years, output=args.output, include_context=not args.skip_context)
+
+
+if __name__ == "__main__":
+    main()
+, line)
+        if heading:
+            close_list(); level = len(heading.group(1)); parts.append('<h' + str(level) + '>' + fmt(heading.group(2)) + '</h' + str(level) + '>')
+        elif line.startswith('- '):
+            if not in_list: parts.append('<ul>'); in_list = True
+            parts.append('<li>' + fmt(line[2:]) + '</li>')
+        else: close_list(); parts.append('<p>' + fmt(line) + '</p>')
+    close_list(); close_table()
+    chart = '<h2>价格走势与技术指标</h2><img class="chart" src="' + escape(chart_filename, quote=True) + '" alt="价格走势与技术指标图表">'
+    style = 'body{font:16px/1.75 system-ui,sans-serif;background:#f3f6fb;color:#182230;margin:0}main{max-width:1100px;margin:32px auto;padding:36px;background:white;border-radius:16px}h2{margin-top:32px}.chart{width:100%;height:auto}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:9px;text-align:left}th{background:#f1f5f9}@media(max-width:650px){main{margin:0;padding:20px}}'
+    return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + escape(title) + '</title><style>' + style + '</style></head><body><main><h1>' + escape(title) + '</h1>' + chart + ''.join(parts) + '<p>本报告仅供研究与学习，不构成投资建议。</p></main></body></html>'
+
 def run_analysis(code: str, years: int = 3, output: str | Path = "output",
                  include_context: bool = True) -> dict[str, Any]:
     code = normalize_code(code)
