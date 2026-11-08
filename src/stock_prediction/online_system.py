@@ -55,35 +55,70 @@ def _first_existing(frame: pd.DataFrame, names: tuple[str, ...]) -> str | None:
 
 
 def fetch_history(code: str, years: int = 3) -> pd.DataFrame:
-    """通过 AkShare 获取前复权日线，并转换为统一英文列名。"""
+    """多数据源获取 A 股前复权日线；主源限流时自动切换备用源。"""
     import akshare as ak
 
     end = date.today()
     start = end - timedelta(days=365 * years + 35)
-    raw = ak.stock_zh_a_hist(
-        symbol=code,
-        period="daily",
-        start_date=start.strftime("%Y%m%d"),
-        end_date=end.strftime("%Y%m%d"),
-        adjust="qfq",
-    )
-    if raw is None or raw.empty:
-        raise RuntimeError(f"行情接口没有返回 {code} 的数据，请稍后重试")
+    start_compact, end_compact = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+    start_iso, end_iso = start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+    sources: list[tuple[str, Any]] = [
+        ("东方财富", lambda: ak.stock_zh_a_hist(
+            symbol=code, period="daily", start_date=start_compact,
+            end_date=end_compact, adjust="qfq",
+        )),
+    ]
+    # 腾讯和新浪使用不同供应商，东方财富 push2 限流时不再反复请求主源。
+    if code.startswith(("0", "1", "2", "3", "5", "6", "9")):
+        market = "sh" if code.startswith(("5", "6", "9")) else "sz"
+        sources.append(("腾讯", lambda: ak.stock_zh_a_hist_tx(
+            symbol=f"{market}{code}", start_date=start_compact,
+            end_date=end_compact, adjust="qfq",
+        )))
+        if market in ("sh", "sz"):
+            sources.append(("新浪", lambda: ak.stock_zh_a_daily(
+                symbol=f"{market}{code}", start_date=start_compact,
+                end_date=end_compact, adjust="qfq",
+            )))
+
+    errors: list[str] = []
+    raw = None
+    used_source = ""
+    for source_name, fetch in sources:
+        try:
+            candidate = fetch()
+            if candidate is not None and not candidate.empty:
+                raw, used_source = candidate, source_name
+                break
+            errors.append(f"{source_name}: 返回空数据")
+        except Exception as exc:
+            errors.append(f"{source_name}: {type(exc).__name__}: {str(exc)[:180]}")
+
+    if raw is None:
+        detail = "；".join(errors)
+        raise RuntimeError(
+            f"无法获取 {code} 的历史行情，已尝试东方财富、腾讯和新浪数据源。"
+            f"请稍后重试。接口错误：{detail}"
+        )
+
     mapping = {
         "日期": "date", "开盘": "open", "收盘": "close", "最高": "high",
         "最低": "low", "成交量": "volume", "成交额": "amount",
         "涨跌幅": "pct_change", "振幅": "amplitude", "换手率": "turnover",
     }
     frame = raw.rename(columns=mapping).copy()
-    date_col = _first_existing(frame, ("date", "trade_date", "日期"))
+    # 不同供应商的成交量/日期列名略有差异。
+    aliases = {"trade_date": "date", "vol": "volume", "成交额(元)": "amount"}
+    frame = frame.rename(columns={k: v for k, v in aliases.items() if k in frame.columns})
+    date_col = _first_existing(frame, ("date", "日期"))
     if date_col is None:
-        raise RuntimeError(f"行情数据缺少日期列，实际字段：{list(frame.columns)}")
+        raise RuntimeError(f"{used_source} 行情数据缺少日期列，实际字段：{list(frame.columns)}")
     if date_col != "date":
         frame = frame.rename(columns={date_col: "date"})
     required = ("open", "close", "high", "low", "volume")
     missing = [c for c in required if c not in frame.columns]
     if missing:
-        raise RuntimeError(f"行情数据缺少必要字段：{', '.join(missing)}")
+        raise RuntimeError(f"{used_source} 行情数据缺少必要字段：{', '.join(missing)}")
     for col in required + ("amount", "pct_change", "amplitude", "turnover"):
         if col in frame.columns:
             frame[col] = pd.to_numeric(frame[col], errors="coerce")
@@ -91,7 +126,10 @@ def fetch_history(code: str, years: int = 3) -> pd.DataFrame:
     frame = frame.dropna(subset=["date", "open", "close", "high", "low", "volume"])
     frame = frame.sort_values("date").drop_duplicates("date").reset_index(drop=True)
     if len(frame) < 180:
-        raise RuntimeError(f"只有 {len(frame)} 个有效交易日；机器学习研究至少需要 180 个交易日")
+        raise RuntimeError(
+            f"{used_source} 仅返回 {len(frame)} 个有效交易日；机器学习研究至少需要 180 个交易日"
+        )
+    frame.attrs["data_source"] = used_source
     return frame
 
 
