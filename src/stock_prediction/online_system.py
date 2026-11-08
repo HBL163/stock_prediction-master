@@ -503,10 +503,16 @@ def _markdown_report_to_html(markdown_text: str, title: str, chart_filename: str
     in_list = False
     in_table = False
     def fmt(value: str) -> str:
-        value = re.sub(r'\[([^\]]+)\]\((https?://[^\s)]+)\)',
-                       lambda m: '<a href="' + escape(m.group(2), quote=True) + '" target="_blank" rel="noopener noreferrer">' + escape(m.group(1)) + '</a>', value)
-        value = escape(value) if '<a href=' not in value else value
-        return re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', value)
+        chunks = []
+        position = 0
+        pattern = re.compile(r'\\[([^\\]]+)\\]\\((https?://[^\\s)]+)\\)')
+        for match in pattern.finditer(value):
+            chunks.append(escape(value[position:match.start()]))
+            chunks.append('<a href="' + escape(match.group(2), quote=True) + '" target="_blank" rel="noopener noreferrer">' + escape(match.group(1)) + '</a>')
+            position = match.end()
+        chunks.append(escape(value[position:]))
+        safe = ''.join(chunks)
+        return re.sub(r'\\*\\*(.+?)\\*\\*', r'<strong>\\1</strong>', safe)
     def close_list():
         nonlocal in_list
         if in_list: parts.append('</ul>'); in_list = False
