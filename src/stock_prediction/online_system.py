@@ -505,14 +505,14 @@ def _markdown_report_to_html(markdown_text: str, title: str, chart_filename: str
     def fmt(value: str) -> str:
         chunks = []
         position = 0
-        pattern = re.compile(r'\\[([^\\]]+)\\]\\((https?://[^\\s)]+)\\)')
+        pattern = re.compile(r'\[([^]]+)\]((https?://[^s)]+))')
         for match in pattern.finditer(value):
             chunks.append(escape(value[position:match.start()]))
             chunks.append('<a href="' + escape(match.group(2), quote=True) + '" target="_blank" rel="noopener noreferrer">' + escape(match.group(1)) + '</a>')
             position = match.end()
         chunks.append(escape(value[position:]))
         safe = ''.join(chunks)
-        return re.sub(r'\\*\\*(.+?)\\*\\*', r'<strong>\\1</strong>', safe)
+        return re.sub(r'\*\*(.+?)\*\*', r'<strong>\\1</strong>', safe)
     def close_list():
         nonlocal in_list
         if in_list: parts.append('</ul>'); in_list = False
