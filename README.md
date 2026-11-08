@@ -207,3 +207,11 @@ type output\metrics_*.json
 | `cnnlstm` | CNN + LSTM + Attention | 多步预测（需 `predict_days` > 0）|
 
 | `hybrid` | Hybrid Aggregator（卷积/GRU + PTFT/VSSM/Diffusion/Graph 总线）| 多模态特征融合 |
+
+
+## 在线全维度股票研究（GitHub Actions）
+无需先在 GitHub 云端安装旧版 PyTorch 训练环境。打开 Actions → “股票代码全维度分析” → Run workflow，输入 A 股代码并选择 2/3/5 年历史数据。成功后下载 Artifacts，内含 Markdown 研究报告、JSON 多周期预测、特征 CSV 和 PNG 图表。
+
+本在线流程使用 ExtraTrees、RandomForest、HistGradientBoosting 候选模型，预测未来 1/3/5/10 个交易日收益，包含时间顺序验证、零收益基线、残差经验区间和简化回测。公司资料/新闻为尽力获取的可选上下文；新闻情绪当前采用中文关键词词典，不是大语言模型。
+
+> 重要：当前仓库快照未包含 README 所列的 `src/stock_prediction/models/` 源码目录和模型权重，因此在线系统不会假称已调用 LSTM/Transformer/PTFT/VSSM。详见 `docs/online_research_system.md`。
