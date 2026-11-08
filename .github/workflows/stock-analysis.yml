@@ -27,6 +27,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: stock-analysis-${{ github.ref }}-${{ inputs.stock_code }}
@@ -70,6 +72,27 @@ jobs:
           cp output/*_forecast.json site/forecast.json
           cp output/*_chart.png site/chart.png
           cp output/*_features.csv site/features.csv
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>AI 股票研究报告</title>
+          <style>body{font:16px/1.7 system-ui,sans-serif;max-width:1000px;margin:36px auto;padding:0 18px;color:#182230}h1{font-size:28px}img{max-width:100%;border:1px solid #ddd;border-radius:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f8fa;padding:20px;border-radius:12px}a{color:#0969da}</style>
+          <h1>AI 股票研究报告</h1><p>本页面展示最近一次 GitHub Actions 分析生成的结果。要分析其他股票，请在仓库 Actions 中运行“股票代码全维度分析”并输入代码。</p>
+          <p><a href="forecast.json">预测数据 JSON</a> · <a href="features.csv">模型特征 CSV</a></p>
+          <h2>价格图表</h2><img src="chart.png" alt="股票价格与预测图表">
+          <h2>完整研究报告</h2><pre id="report">正在加载报告…</pre>
+          <script>fetch('report.md').then(r=>{if(!r.ok)throw Error('报告加载失败');return r.text()}).then(t=>document.querySelector('#report').textContent=t).catch(e=>document.querySelector('#report').textContent=e.message)</script>
+          </html>
+          HTML
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: 上传网站文件
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/
+      - name: 发布在线网站
+        id: deployment
+        uses: actions/deploy-pages@v4
       - name: 上传完整研究报告
         if: always()
         uses: actions/upload-artifact@v4
