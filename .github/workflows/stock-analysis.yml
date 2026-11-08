@@ -16,14 +16,6 @@ on:
           - "2"
           - "3"
           - "5"
-      include_context:
-        description: "自动抓取全球公司、行业和宏观新闻"
-        required: true
-        default: "yes"
-        type: choice
-        options:
-          - "yes"
-          - "no"
 
 permissions:
   contents: read
@@ -58,7 +50,6 @@ jobs:
         env:
           STOCK_CODE: ${{ inputs.stock_code }}
           HISTORY_YEARS: ${{ inputs.history_years }}
-          INCLUDE_CONTEXT: ${{ inputs.include_context }}
         run: |
           python scripts/online_analyze.py --code "$STOCK_CODE" --years "$HISTORY_YEARS" --output output
       - name: 准备在线展示页面
