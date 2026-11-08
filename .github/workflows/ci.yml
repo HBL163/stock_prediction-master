@@ -4,19 +4,36 @@ permissions:
 
 on:
   push:
+    paths:
+      - "src/stock_prediction/online_system.py"
+      - "scripts/online_analyze.py"
+      - "tests/test_online_system.py"
+      - "tests/test_online_analyze.py"
+      - "requirements-online.txt"
+      - ".github/workflows/**"
   pull_request:
+    paths:
+      - "src/stock_prediction/online_system.py"
+      - "scripts/online_analyze.py"
+      - "tests/test_online_system.py"
+      - "tests/test_online_analyze.py"
+      - "requirements-online.txt"
+      - ".github/workflows/**"
 
 jobs:
-  build:
+  online-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-      - name: Install deps
-        run: pip install -r requirements.txt || true
-      - name: Lint
-        run: echo "Add ruff/mypy later"
-      - name: Test
-        run: python -m pytest -q || true
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-online.txt
+      - name: Install online pipeline dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-online.txt pytest
+      - name: Run unit tests
+        run: python -m pytest -q tests/test_online_system.py tests/test_online_analyze.py
