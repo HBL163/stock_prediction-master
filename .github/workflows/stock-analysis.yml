@@ -94,6 +94,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
       - name: 上传完整研究报告
+        id: report_artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -101,3 +102,21 @@ jobs:
           path: output/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: 输出分析报告链接
+        if: always()
+        env:
+          REPORT_URL: ${{ steps.deployment.outputs.page_url }}report.md
+          ARTIFACT_URL: ${{ steps.report_artifact.outputs.artifact-url }}
+          STOCK_CODE: ${{ inputs.stock_code }}
+        run: |
+          {
+            echo "## ${STOCK_CODE} 股票分析已完成"
+            echo
+            if [ -n "$REPORT_URL" ]; then
+              echo "- **在线分析报告：** [点击直接查看报告]($REPORT_URL)"
+            fi
+            if [ -n "$ARTIFACT_URL" ]; then
+              echo "- **完整报告文件包：** [点击下载分析文件]($ARTIFACT_URL)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
