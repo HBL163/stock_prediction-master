@@ -36,6 +36,8 @@ jobs:
           cp published/000002_features.csv site/features.csv
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: 上传网页
         uses: actions/upload-pages-artifact@v3
         with:
