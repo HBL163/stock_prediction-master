@@ -274,8 +274,8 @@ def fit_forecasts(
             raise RuntimeError(f"{horizon} 日预测的最新特征仍含缺失值，请增加历史数据")
         raw_prediction = float(final_model.predict(latest_features)[0])
         prediction = raw_prediction if beats_baseline else 0.0
-        lower = prediction + float(q_low)
-        upper = prediction + float(q_high)
+        lower = min(prediction, prediction + float(q_low))
+        upper = max(prediction, prediction + float(q_high))
         lower_price = max(0.01, latest_price * (1 + lower))
         upper_price = max(lower_price, latest_price * (1 + upper))
         pred_price = max(0.01, latest_price * (1 + prediction))
