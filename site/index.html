@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 股票研究台</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b1020;color:#e8edf8}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#1b2b4a 0,transparent 38%),#0b1020}.wrap{max-width:1100px;margin:auto;padding:32px 20px 64px}header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.eyebrow{color:#8fa8d8;font-size:12px;letter-spacing:2px}.muted{color:#9aa8c2}.pill{border:1px solid #314364;border-radius:99px;padding:7px 12px;color:#a9c5ff;font-size:12px}.hero{margin:30px 0 20px}.hero h1{font-size:clamp(30px,5vw,48px);margin:8px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.card{background:#121b30;border:1px solid #243451;border-radius:16px;padding:18px}.metric{font-size:27px;font-weight:700;margin-top:8px}.section{margin-top:26px}.section h2{font-size:19px}.tablewrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:650px}.table th,.table td{text-align:left;padding:12px;border-bottom:1px solid #293650;font-size:14px}.table th{color:#9fb2d3}.up{color:#55d6a3}.down{color:#ff8b8b}img{max-width:100%;border-radius:12px}.news li{margin:10px 0;color:#c4cee0}.note{font-size:12px;color:#9aa8c2;line-height:1.7}.error{color:#ffb2b2}.footer{margin-top:36px;border-top:1px solid #243451;padding-top:18px}
+</style></head><body><main class="wrap">
+<header><div><div class="eyebrow">QUANT RESEARCH · A-SHARES</div><strong>AI 股票研究台</strong></div><span class="pill" id="status">正在载入最新报告…</span></header>
+<section class="hero"><div class="eyebrow">LATEST RESEARCH</div><h1 id="name">股票分析报告</h1><div class="muted" id="date">读取报告数据中</div></section>
+<section class="grid" id="metrics"></section>
+<section class="section card"><h2>多周期预测</h2><div class="tablewrap"><table class="table"><thead><tr><th>周期</th><th>预测收益</th><th>预测价格</th><th>经验区间</th><th>验证 MAE</th><th>采用模型</th></tr></thead><tbody id="forecasts"></tbody></table></div><p class="note">若候选模型未优于零收益基线，系统会自动回退到基线预测。经验区间不构成统计保证。</p></section>
+<section class="section card"><h2>历史行情与指标图</h2><img id="chart" alt="股票行情分析图" src="chart.png"><p class="note">图表来自最近一次成功运行的分析报告。</p></section>
+<section class="section grid"><div class="card"><h2>模型验证与回测</h2><div id="validation" class="note">—</div></div><div class="card"><h2>新闻情绪</h2><div class="metric" id="sentiment">—</div><div class="muted" id="sentimentNote"></div><ul class="news" id="news"></ul></div></section>
+<section class="section card"><h2>完整研究报告</h2><p><a href="report.md" style="color:#a9c5ff">查看 Markdown 原始报告</a>　<a href="forecast.json" style="color:#a9c5ff">查看预测数据 JSON</a></p><p class="note">仅供研究学习，不构成投资建议；历史表现不保证未来收益。</p></section>
+<footer class="footer note">数据与模型可能存在延迟、误差及回测假设限制。请勿仅凭模型预测进行交易。</footer>
+</main><script>
+const pct=x=>((Number(x)||0)*100).toFixed(2)+'%';const money=x=>Number(x).toFixed(2);
+fetch('forecast.json?'+Date.now()).then(r=>{if(!r.ok)throw Error('尚未发布报告');return r.json()}).then(d=>{
+document.getElementById('status').textContent='最新报告已发布';document.getElementById('name').textContent=(d.code||'')+' 股票分析';document.getElementById('date').textContent='行情截止：'+(d.as_of||'—')+' · 最近收盘价：'+money(d.latest_close);
+const m=[['最新收盘价',money(d.latest_close)],['1 日预测',pct(d.forecasts?.[0]?.prediction_return)],['5 日预测',pct(d.forecasts?.find(x=>x.horizon===5)?.prediction_return)],['模型状态',(d.forecasts||[]).every(x=>x.selected_model==='zero_return_baseline')?'回退至基线':'机器学习模型']];
+document.getElementById('metrics').innerHTML=m.map(x=>'<div class="card"><div class="muted">'+x[0]+'</div><div class="metric">'+x[1]+'</div></div>').join('');
+document.getElementById('forecasts').innerHTML=(d.forecasts||[]).map(x=>'<tr><td>'+x.horizon+' 日</td><td class="'+(x.prediction_return>=0?'up':'down')+'">'+pct(x.prediction_return)+'</td><td>'+money(x.prediction_price)+'</td><td>'+money(x.lower_price)+' – '+money(x.upper_price)+'</td><td>'+pct(x.validation_mae)+'</td><td>'+x.selected_model+'</td></tr>').join('');
+document.getElementById('validation').innerHTML=(d.forecasts||[]).map(x=>x.horizon+' 日：方向准确率 '+pct(x.directional_accuracy)+'；验证样本 '+x.validation_samples+'；回测收益 '+pct(x.backtest_total_return)).join('<br>');
+const s=d.sentiment||d.news_sentiment||{};document.getElementById('sentiment').textContent=s.score==null?'未提供':Number(s.score).toFixed(3);document.getElementById('sentimentNote').textContent='新闻情绪仅为关键词词典辅助参考';
+const ns=d.news||d.recent_news||[];document.getElementById('news').innerHTML=ns.slice(0,6).map(x=>'<li>'+((typeof x==='string')?x:(x.title||x.headline||JSON.stringify(x)))+'</li>').join('');
+}).catch(e=>{document.getElementById('status').textContent='暂无在线报告';document.getElementById('name').textContent='等待首次发布';document.getElementById('date').innerHTML='<span class="error">'+e.message+'</span>'});
+</script></body></html>
