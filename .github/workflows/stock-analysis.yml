@@ -17,7 +17,7 @@ on:
           - "3"
           - "5"
       include_context:
-        description: "尝试抓取公司资料和新闻情绪"
+        description: "自动抓取全球公司、行业和宏观新闻"
         required: true
         default: "yes"
         type: choice
@@ -60,11 +60,7 @@ jobs:
           HISTORY_YEARS: ${{ inputs.history_years }}
           INCLUDE_CONTEXT: ${{ inputs.include_context }}
         run: |
-          if [ "$INCLUDE_CONTEXT" = "no" ]; then
-            python scripts/online_analyze.py --code "$STOCK_CODE" --years "$HISTORY_YEARS" --skip-context --output output
-          else
-            python scripts/online_analyze.py --code "$STOCK_CODE" --years "$HISTORY_YEARS" --output output
-          fi
+          python scripts/online_analyze.py --code "$STOCK_CODE" --years "$HISTORY_YEARS" --output output
       - name: 准备在线展示页面
         run: |
           mkdir -p site
