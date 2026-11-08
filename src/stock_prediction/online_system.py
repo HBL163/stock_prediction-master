@@ -269,7 +269,10 @@ def fit_forecasts(
         q_low, q_high = np.quantile(residuals, [0.05, 0.95])
         final_model = _make_candidates(seed + horizon)[best_name]
         final_model.fit(x, y)
-        raw_prediction = float(final_model.predict(x.iloc[[-1]])[0])
+        latest_features = indicators[FEATURE_COLUMNS].iloc[[-1]]
+        if latest_features.isna().any(axis=None):
+            raise RuntimeError(f"{horizon} 日预测的最新特征仍含缺失值，请增加历史数据")
+        raw_prediction = float(final_model.predict(latest_features)[0])
         prediction = raw_prediction if beats_baseline else 0.0
         lower = prediction + float(q_low)
         upper = prediction + float(q_high)
@@ -364,7 +367,7 @@ def build_report(code: str, indicators: pd.DataFrame, forecasts: list[HorizonRes
     rsi = float(last["rsi_14"])
     ma20 = float(last["close_ma_ratio_20"])
     ma60 = float(last["close_ma_ratio_60"])
-    trend = "偏多" if price > float(last["close"]) / (1 + ma20) and ma20 > 0 and ma60 > 0 else (
+    trend = "偏多" if ma20 > 0 and ma60 > 0 else (
         "偏空" if ma20 < 0 and ma60 < 0 else "震荡/分化"
     )
     sentiment = context.get("news", {}).get("sentiment_score")
