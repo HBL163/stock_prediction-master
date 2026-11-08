@@ -22,6 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from stock_prediction.news_research import fetch_global_news
 from sklearn.ensemble import ExtraTreesRegressor, HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -352,47 +353,33 @@ def fit_forecasts(
 
 
 def fetch_company_context(code: str) -> dict[str, Any]:
-    """尽力获取公司资料和新闻；外部接口失败时不影响量化分析主流程。"""
+    """获取公司资料，并聚合全球公司/行业/宏观新闻；新闻失败会留下明确诊断。"""
     import akshare as ak
 
     context: dict[str, Any] = {"fundamentals": {}, "news": {"count": 0, "sentiment_score": None, "headlines": []}}
+    company_name = ""
+    industry = ""
     try:
         info = ak.stock_individual_info_em(symbol=code)
         if isinstance(info, pd.DataFrame) and not info.empty and {"item", "value"} <= set(info.columns):
             raw = dict(zip(info["item"].astype(str), info["value"].astype(str)))
             keep = ("股票简称", "行业", "总市值", "流通市值", "市盈率-动态", "市净率", "上市时间")
             context["fundamentals"] = {k: raw[k] for k in keep if k in raw}
+            company_name = raw.get("股票简称", "")
+            industry = raw.get("行业", "")
     except Exception as exc:
-        context["fundamentals_error"] = str(exc)[:240]
+        context["fundamentals_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+
     try:
-        news = ak.stock_news_em(symbol=code)
-        if isinstance(news, pd.DataFrame) and not news.empty:
-            title_col = _first_existing(news, ("新闻标题", "标题", "title"))
-            content_col = _first_existing(news, ("新闻内容", "内容", "content"))
-            time_col = _first_existing(news, ("发布时间", "时间", "publish_time"))
-            if title_col:
-                recent = news.head(40).copy()
-                texts = (recent[title_col].fillna("").astype(str) + " " +
-                         (recent[content_col].fillna("").astype(str) if content_col else ""))
-                positive = sum(text.count(word) for text in texts for word in POSITIVE_WORDS)
-                negative = sum(text.count(word) for text in texts for word in NEGATIVE_WORDS)
-                total = positive + negative
-                headlines = []
-                for _, row in recent.head(8).iterrows():
-                    headlines.append({
-                        "time": str(row[time_col]) if time_col else "",
-                        "title": str(row[title_col])[:180],
-                    })
-                context["news"] = {
-                    "count": int(len(recent)),
-                    "sentiment_score": float((positive - negative) / total) if total else 0.0,
-                    "positive_keyword_hits": int(positive),
-                    "negative_keyword_hits": int(negative),
-                    "headlines": headlines,
-                    "method": "中文关键词词典计数（非大语言模型情绪识别）",
-                }
+        context["news"] = fetch_global_news(
+            code=code, company_name=company_name, industry=industry, limit=60
+        )
     except Exception as exc:
-        context["news_error"] = str(exc)[:240]
+        context["news"] = {
+            "count": 0, "sentiment_score": None, "headlines": [],
+            "status": "error", "error": f"{type(exc).__name__}: {str(exc)[:240]}",
+            "method": "Google News RSS aggregation; no news was successfully retrieved",
+        }
     return context
 
 
@@ -448,19 +435,34 @@ def build_report(code: str, indicators: pd.DataFrame, forecasts: list[HorizonRes
         lines.extend([f"- {key}：{value}" for key, value in fundamentals.items()])
     else:
         lines.append("- 公司资料接口未返回有效数据；请勿将缺失字段理解为零。")
-    lines += ["", "## 新闻情绪（辅助参考）"]
+    lines += ["", "## 全球新闻与事件影响分析", ""]
     news = context.get("news", {})
-    if news.get("count"):
-        score = news.get("sentiment_score")
+    lines.append(f"- 抓取状态：{news.get('status', 'unknown')}；成功获取 {news.get('count', 0)} 条去重新闻")
+    lines.append(f"- 覆盖范围：{news.get('coverage', '全球公司、行业与宏观新闻')}")
+    lines.append(f"- 新闻来源：{', '.join(news.get('sources', [])) or '无可用来源'}")
+    score = news.get("sentiment_score")
+    if score is not None:
         label = "偏正面" if score > 0.15 else ("偏负面" if score < -0.15 else "中性/信号较弱")
-        lines += [f"- 最近抓取新闻：{news['count']} 条",
-                  f"- 词典情绪分数：{score:+.3f}（{label}）",
-                  f"- 正面/负面词命中：{news.get('positive_keyword_hits', 0)} / {news.get('negative_keyword_hits', 0)}",
-                  f"- 计算方式：{news.get('method', '关键词计数')}"]
-        lines += ["", "近期标题："]
-        lines.extend([f"- {item['time']} {item['title']}" for item in news.get("headlines", [])])
+        lines.append(f"- 综合情绪：{score:+.3f}（{label}）；正面/负面命中 {news.get('positive_keyword_hits', 0)} / {news.get('negative_keyword_hits', 0)}")
+    if news.get("error"):
+        lines.append(f"- 抓取错误：{news['error']}")
+    lines.append(f"- 新闻情绪方法：{news.get('method', '规则词典辅助分类')}；不等同于专业投资判断")
+    headlines = news.get("headlines", [])
+    if headlines:
+        lines += ["", "| 发布时间 | 来源 | 情绪 | 新闻标题 | 链接 |", "|---|---|---|---|---|"]
+        for item in headlines:
+            title = str(item.get("title", "")).replace("|", "\\|").replace("\\n", " ")
+            url = item.get("url", "")
+            link = f"[阅读原文]({url})" if url else "无原文链接"
+            lines.append(f"| {item.get('time', '')} | {item.get('source', '')} | {item.get('sentiment', '中性')} | {title} | {link} |")
     else:
-        lines.append("- 新闻接口暂不可用或没有返回可解析标题，本次未纳入新闻情绪。")
+        lines.append("- 本次没有成功获取可展示的新闻；系统不会把空结果伪装成已完成新闻分析。")
+    lines += ["", "### 新闻主题拆分", ""]
+    for topic, count in (news.get("topic_counts") or {}).items():
+        lines.append(f"- {topic}：{count} 条")
+    lines += ["", "### 对股价的潜在影响（规则辅助提示）", ""]
+    for note in news.get("impact_notes", []):
+        lines.append(f"- {note}")
     lines += ["", "## 风险与方法边界",
               "- 所有模型特征均由预测时点及此前数据计算；标签为未来 1/3/5/10 个交易日收益。",
               "- 验证按时间顺序切分，并在训练集末端留出预测周期长度的隔离区，降低标签重叠泄漏。",
