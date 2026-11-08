@@ -27,8 +27,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: stock-analysis-${{ github.ref }}-${{ inputs.stock_code }}
@@ -72,15 +70,6 @@ jobs:
           cp output/*_forecast.json site/forecast.json
           cp output/*_chart.png site/chart.png
           cp output/*_features.csv site/features.csv
-      - name: 配置 GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: 上传在线网站文件
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - name: 发布在线股票分析页面
-        id: deployment
-        uses: actions/deploy-pages@v4
       - name: 上传完整研究报告
         if: always()
         uses: actions/upload-artifact@v4
