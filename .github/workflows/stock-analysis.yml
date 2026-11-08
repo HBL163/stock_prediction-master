@@ -52,24 +52,16 @@ jobs:
           HISTORY_YEARS: ${{ inputs.history_years }}
         run: |
           python scripts/online_analyze.py --code "$STOCK_CODE" --years "$HISTORY_YEARS" --output output
-      - name: 准备在线展示页面
+      - name: 准备 HTML 报告网站
         run: |
           mkdir -p site
-          cp output/*_analysis.md site/report.md
-          cp output/*_forecast.json site/forecast.json
+          cp output/*_analysis.html site/report.html
           cp output/*_chart.png site/chart.png
+          cp output/*_forecast.json site/forecast.json
           cp output/*_features.csv site/features.csv
           cat > site/index.html <<'HTML'
           <!doctype html>
-          <html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-          <title>AI 股票研究报告</title>
-          <style>body{font:16px/1.7 system-ui,sans-serif;max-width:1000px;margin:36px auto;padding:0 18px;color:#182230}h1{font-size:28px}img{max-width:100%;border:1px solid #ddd;border-radius:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f8fa;padding:20px;border-radius:12px}a{color:#0969da}</style>
-          <h1>AI 股票研究报告</h1><p>本页面展示最近一次 GitHub Actions 分析生成的结果。要分析其他股票，请在仓库 Actions 中运行“股票代码全维度分析”并输入代码。</p>
-          <p><a href="forecast.json">预测数据 JSON</a> · <a href="features.csv">模型特征 CSV</a></p>
-          <h2>价格图表</h2><img src="chart.png" alt="股票价格与预测图表">
-          <h2>完整研究报告</h2><pre id="report">正在加载报告…</pre>
-          <script>fetch('report.md').then(r=>{if(!r.ok)throw Error('报告加载失败');return r.text()}).then(t=>document.querySelector('#report').textContent=t).catch(e=>document.querySelector('#report').textContent=e.message)</script>
-          </html>
+          <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=report.html"><title>AI 股票分析报告</title></head><body><p><a href="report.html">打开 HTML 股票分析报告</a></p></body></html>
           HTML
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
@@ -93,15 +85,15 @@ jobs:
       - name: 输出分析报告链接
         if: always()
         env:
-          REPORT_URL: ${{ steps.deployment.outputs.page_url }}report.md
+          REPORT_URL: ${{ steps.deployment.outputs.page_url }}report.html
           ARTIFACT_URL: ${{ steps.report_artifact.outputs.artifact-url }}
           STOCK_CODE: ${{ inputs.stock_code }}
         run: |
           {
-            echo "## ${STOCK_CODE} 股票分析已完成"
+            echo "## ${STOCK_CODE} HTML 股票分析报告已完成"
             echo
             if [ -n "$REPORT_URL" ]; then
-              echo "- **在线分析报告：** [点击直接查看报告]($REPORT_URL)"
+              echo "- **HTML 在线报告：** [点击直接查看完整报告]($REPORT_URL)"
             fi
             if [ -n "$ARTIFACT_URL" ]; then
               echo "- **完整报告文件包：** [点击下载分析文件]($ARTIFACT_URL)"
