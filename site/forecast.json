@@ -1,0 +1,99 @@
+{
+  "code": "000002",
+  "as_of": "2026-11-06",
+  "latest_close": 3.24,
+  "forecasts": [
+    {
+      "horizon": 1,
+      "prediction_return": 0,
+      "prediction_price": 3.24,
+      "lower_price": 3.1203,
+      "upper_price": 3.3723,
+      "validation_mae": 0.019335,
+      "baseline_mae": 0.019335,
+      "directional_accuracy": 0.0383,
+      "validation_samples": 235,
+      "selected_model": "zero_return_baseline",
+      "backtest_total_return": 0
+    },
+    {
+      "horizon": 3,
+      "prediction_return": 0,
+      "prediction_price": 3.24,
+      "lower_price": 2.993,
+      "upper_price": 3.4358,
+      "validation_mae": 0.033398,
+      "baseline_mae": 0.033398,
+      "directional_accuracy": 0.0214,
+      "validation_samples": 234,
+      "selected_model": "zero_return_baseline",
+      "backtest_total_return": 0
+    },
+    {
+      "horizon": 5,
+      "prediction_return": 0,
+      "prediction_price": 3.24,
+      "lower_price": 2.913,
+      "upper_price": 3.4693,
+      "validation_mae": 0.043701,
+      "baseline_mae": 0.043701,
+      "directional_accuracy": 0.0171,
+      "validation_samples": 234,
+      "selected_model": "zero_return_baseline",
+      "backtest_total_return": 0
+    },
+    {
+      "horizon": 10,
+      "prediction_return": 0,
+      "prediction_price": 3.24,
+      "lower_price": 2.745,
+      "upper_price": 3.4682,
+      "validation_mae": 0.063308,
+      "baseline_mae": 0.063308,
+      "directional_accuracy": 0.0043,
+      "validation_samples": 233,
+      "selected_model": "zero_return_baseline",
+      "backtest_total_return": 0
+    }
+  ],
+  "technical": {
+    "day_change": -0.027,
+    "return_20d": -0.202,
+    "volatility_20d": 0.418,
+    "rsi14": 42.9,
+    "ma20_deviation": -0.0485,
+    "ma60_deviation": -0.0324,
+    "trend": "偏空"
+  },
+  "company_context": {
+    "news": {
+      "count": 10,
+      "sentiment_score": -0.5,
+      "positive_keyword_hits": 1,
+      "negative_keyword_hits": 3,
+      "method": "中文关键词词典计数（非大语言模型情绪识别）",
+      "headlines": [
+        {
+          "time": "2026-09-29 16:01",
+          "title": "涨停、炸板、又涨停！000002上演过山车行情"
+        },
+        {
+          "time": "2026-11-04 16:56",
+          "title": "超级品牌概念下跌0.61%，主力资金净流出37股"
+        },
+        {
+          "time": "2026-10-29 20:05",
+          "title": "万科A：前三季度净亏损239.44亿元"
+        },
+        {
+          "time": "2026-09-21 13:48",
+          "title": "午后异动！000002，反复触及涨停"
+        },
+        {
+          "time": "2026-11-03 16:58",
+          "title": "超级品牌概念涨1.74%，主力资金净流入23股"
+        }
+      ]
+    }
+  }
+}
