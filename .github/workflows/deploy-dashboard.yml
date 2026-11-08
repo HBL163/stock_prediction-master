@@ -7,6 +7,10 @@ on:
       - "site/index.html"
       - ".github/workflows/deploy-dashboard.yml"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["股票代码全维度分析"]
+    types: [completed]
+    branches: [master]
 
 permissions:
   contents: read
@@ -20,6 +24,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: 检出仓库
@@ -29,11 +34,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p published
-          gh run download 42457318930 --repo "$GITHUB_REPOSITORY" --name stock-research-000002-2 --dir published
-          cp published/000002_forecast.json site/forecast.json
-          cp published/000002_analysis.md site/report.md
-          cp published/000002_chart.png site/chart.png
-          cp published/000002_features.csv site/features.csv
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          if [ -z "$RUN_ID" ]; then RUN_ID=42457318930; fi
+          ARTIFACT_NAME=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.expired == false) | .name' | head -n 1)
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT_NAME" --dir published
+          FORECAST=$(find published -maxdepth 1 -name '*_forecast.json' -print -quit)
+          CODE=$(basename "$FORECAST" _forecast.json)
+          cp "$FORECAST" site/forecast.json
+          cp "published/${CODE}_analysis.md" site/report.md
+          cp "published/${CODE}_chart.png" site/chart.png
+          cp "published/${CODE}_features.csv" site/features.csv
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
         with:
