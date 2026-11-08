@@ -1,0 +1,44 @@
+name: 发布股票在线仪表盘
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "site/index.html"
+      - ".github/workflows/deploy-dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+      - name: 下载最近一次研究报告
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p published
+          gh run download 42457318930 --repo "$GITHUB_REPOSITORY" --name stock-research-000002-2 --dir published
+          cp published/000002_forecast.json site/forecast.json
+          cp published/000002_analysis.md site/report.md
+          cp published/000002_chart.png site/chart.png
+          cp published/000002_features.csv site/features.csv
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: 上传网页
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: 发布网页
+        uses: actions/deploy-pages@v4
