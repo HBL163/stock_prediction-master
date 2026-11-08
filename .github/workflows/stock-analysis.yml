@@ -53,7 +53,7 @@ jobs:
           python -m pip install -r requirements-online.txt
           python -m pip install pytest
       - name: 运行在线系统单元测试
-        run: python -m pytest -q tests/test_online_system.py tests/test_online_analyze.py
+        run: python -m pytest -q tests/test_online_system.py tests/test_online_analyze.py tests/test_news_research.py
       - name: 运行股票研究流水线
         env:
           STOCK_CODE: ${{ inputs.stock_code }}
